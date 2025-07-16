@@ -82,5 +82,5 @@ The **Patient Management System (PMS)** is a Spring Boot-based REST API that han
 
  ### 📡 API Endpoints Overview
 
-![API Endpoints](./api-endpoints.png)
+![API Endpoints](api-endpoints.jpg)
 
