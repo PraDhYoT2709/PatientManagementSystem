@@ -79,3 +79,8 @@ The **Patient Management System (PMS)** is a Spring Boot-based REST API that han
 - **RESTful Design**: Standard HTTP methods for all entity endpoints.
 - **Validation Feedback**: All errors return clean, structured JSON with field-specific messages.
 - **Consistent JSON Format**: Success and error responses follow a consistent pattern across the app.
+
+ ### 📡 API Endpoints Overview
+
+![API Endpoints](./api-endpoints.png)
+
