@@ -1,0 +1,237 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: pms-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: prakhaar12
+      MYSQL_DATABASE: pms_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    networks:
+      - pms-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Eureka Discovery Service
+  discovery-service:
+    build:
+      context: ./services/discovery-service
+      dockerfile: Dockerfile
+    container_name: pms-discovery-service
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - pms-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: pms-auth-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/auth_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=prakhaar12
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - JWT_SECRET=b2D3dM7qA5N8sXzK1JvB4YtR6LcT9QpFgUwErZnHxVbMsD7PfKgVhWnXcYaTrMzB
+    networks:
+      - pms-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Patient Service
+  patient-service:
+    build:
+      context: ./services/patient-service
+      dockerfile: Dockerfile
+    container_name: pms-patient-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/patient_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=prakhaar12
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - pms-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Doctor Service
+  doctor-service:
+    build:
+      context: ./services/doctor-service
+      dockerfile: Dockerfile
+    container_name: pms-doctor-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/doctor_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=prakhaar12
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - pms-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Appointment Service
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+      dockerfile: Dockerfile
+    container_name: pms-appointment-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/appointment_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=prakhaar12
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    networks:
+      - pms-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+      doctor-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Chatbot Service
+  chatbot-service:
+    build:
+      context: ./services/chatbot-service
+      dockerfile: Dockerfile
+    container_name: pms-chatbot-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - JWT_SECRET=b2D3dM7qA5N8sXzK1JvB4YtR6LcT9QpFgUwErZnHxVbMsD7PfKgVhWnXcYaTrMzB
+    networks:
+      - pms-network
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+      doctor-service:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: pms-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - JWT_SECRET=b2D3dM7qA5N8sXzK1JvB4YtR6LcT9QpFgUwErZnHxVbMsD7PfKgVhWnXcYaTrMzB
+    networks:
+      - pms-network
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+      doctor-service:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+      chatbot-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Chat Widget (Nginx)
+  chat-widget:
+    build:
+      context: ./services/chat-widget
+      dockerfile: Dockerfile
+    container_name: pms-chat-widget
+    ports:
+      - "3000:80"
+    networks:
+      - pms-network
+    depends_on:
+      - api-gateway
+
+volumes:
+  mysql_data:
+
+networks:
+  pms-network:
+    driver: bridge
